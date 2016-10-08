@@ -31,19 +31,33 @@ int getcmd(char *prompt, char *args[], int *background) {
 		return i; 
 	}
 
-void storehistory(char *args[]){
-
-}
 struct command{
 		char *args[20];
 		int count;
 		int length;
 };
 
+struct command getHistory(char *id, struct command all_c[10]){
+	char *token;
+	char *count;
+	int selector;
+	while((token=strsep(&id, "!"))!=NULL){
+		count = token;
+	}
+
+	for(int i=0; i<10; i++){
+		if(all_c[i].count == atoi(count)){
+			selector = i;
+			break;
+		}
+	}
+
+	return all_c[selector];
+}
 
 int main(void) {
 	char *args[20]; int bg;
-	char *history_args[20];
+	struct command history_command;
 	int t_count = -1;
 	struct command all_commands[10];
 	
@@ -58,9 +72,17 @@ int main(void) {
 		(3) if background is not specified, the parent will wait,
 			otherwise parent starts the next command... */
 
+		
+		if(args[0][0]=='!') {
+			history_command = getHistory(args[0], all_commands);
+			for(int k=0; k<history_command.length; k++){
+				args[k] = history_command.args[k];
+			}
+			cnt = history_command.length;
+		}
+
 		//Make sure last args entry is null
 		args[cnt] = NULL;
-
 		struct command commandi;
 
 		commandi.count = t_count;
@@ -75,17 +97,15 @@ int main(void) {
 		if(process==0) {
 			//child
 			if(!strcmp(args[0], "history")){
-				for(int i=t_count; i>t_count-10 && i>0; i--){
+				for(int i=t_count; i>t_count-10 && i>-1; i--){
 					printf("%d : ", all_commands[i%10].count);
 
 					for(int j=0; j<all_commands[i%10].length; j++){
-						printf("%s", all_commands[i%10].args[j]);
+						printf("%s ", all_commands[i%10].args[j]);
 					}
 
 					printf("\n");
 				}
-			}else if(args[0][0]=='!') {
-				printf("Got here");
 			}else {
 				execvp(args[0], args);
 				exit(0);
