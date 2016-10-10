@@ -107,10 +107,9 @@ int main(void) {
 	struct BPROCESS bprocessi;
 	int t_count = -1;
 	int bprocess_count = 1;
-	int redirect = 0;
-	int stdout_cpy;
 	int output_file;
-	
+	int in_out[2];
+
 	while(1) {
 	    bg = 0;
 		int cnt = getcmd("\n>> ", args, &bg);
@@ -178,16 +177,55 @@ int main(void) {
 					printf("\n");
 				}
 			}else{
-				/*Check for redirect*/
+				/*Check for redirect or pipes*/
 				for(int t=0; t<cnt; t++){
+
+					/*REDIRECT*/
 					if(!strcmp(args[t], ">")){
 						cnt = t;
 						close(1);
 						output_file = open(args[t+1], O_WRONLY);
 						args[cnt] = NULL;
-					}else if(!strcmp(args[t], "|")){
-						cnt = 1;
 
+					/*PIPE*/
+					}else if(!strcmp(args[t], "|")){
+						int mid = t;
+
+						/*Left hand side arguments from 0 to t-1*/
+						args[t] = NULL;
+
+						/*Create pipe*/
+						pipe(in_out);
+
+						/*Create a child process to run left hand side*/
+						int child = fork();
+						if(child==0){
+							close(1);
+							close(in_out[0]);
+							dup(in_out[1]);
+
+							execvp(args[0], args);
+							close(in_out[1]);
+							exit(0);
+						}else{
+							int status;
+							waitpid(child, &status, 0);
+
+							close(0);
+							close(in_out[1]);
+							dup(in_out[0]);
+							char *right[cnt-t];
+
+							/*Right hand side args from t+1 to cnt will be replaced from 0 to cnt*/
+							for(int c=t+1; c<cnt; c++){
+								right[c-t-1] = args[c];
+							}
+
+							right[cnt-t-1] = NULL;
+ 							execvp(right[0], right);
+							close(in_out[0]);
+							exit(0);
+						}
 					}
 				}
 				execvp(args[0], args);
