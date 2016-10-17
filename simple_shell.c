@@ -3,6 +3,7 @@
 #include <string.h> 
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 //
 // This code is given for illustration purposes. You need not include or follow this
 // strictly. Feel free to writer better or bug free code. This example code block does not
@@ -45,6 +46,8 @@ struct BPROCESS{
 	int uid;
 };
 
+/*********Part2**********/
+/*Takes as input the id entered and returns the command corresponding to the id*/
 struct command getHistory(char *id, struct command all_c[10]){
 	char *token;
 	char *count;
@@ -63,6 +66,7 @@ struct command getHistory(char *id, struct command all_c[10]){
 	return all_c[selector];
 }
 
+/*cd built in command*/
 void changeDir(char *arg){
 	int success = chdir(arg);
 	if(!success){
@@ -72,6 +76,7 @@ void changeDir(char *arg){
 	}
 }
 
+/*pwd build in command*/
 void currentDir(){
 	size_t size = 100;
 	char *buffer = (char *) malloc(size);
@@ -81,32 +86,12 @@ void currentDir(){
 	free(buffer);
 }
 
-void getJobs(struct BPROCESS all_bp[2]){
-	// int status;
-	// waitpid(all_bp[0].pid, &status, WNOHANG);
-	for(int i=0; i<2; i++){
-		
-		int status;
-		waitpid(all_bp[i].pid, &status, WNOHANG);
-		if(status!=0 && all_bp[i].pid!=0){
-			printf("%d : %d : ", all_bp[i].uid, all_bp[i].pid);
-			for(int k=0; k<all_bp[i].length; k++){
-				printf("%s ", all_bp[i].args[k]);
-			}
-			printf("\n");
-		}
-	}
-}
-
 int main(void) {
 	char *args[20]; int bg;
 	struct command history_command;
 	struct command all_commands[10];
-	struct BPROCESS all_bprocesses[2];
 	struct command commandi;
-	struct BPROCESS bprocessi;
 	int t_count = -1;
-	int bprocess_count = 1;
 	int output_file;
 	int in_out[2];
 
@@ -121,6 +106,7 @@ int main(void) {
 		(3) if background is not specified, the parent will wait,
 			otherwise parent starts the next command... */
 
+		/********Part2*********/
 		/*History command access*/
 		if(args[0][0]=='!') {
 			history_command = getHistory(args[0], all_commands);
@@ -145,8 +131,11 @@ int main(void) {
 		}
 
 		/*Circular array with modulus operator*/
+		/*This makes it so only 10 of the last commands are stored in the array.*/
+		/*Older commands are overwritten*/
 		all_commands[t_count%10] = commandi;
 
+		/*******Part3*******/
 		/*Built in commands*/
 		if(!strcmp(args[0], "cd")){
 			changeDir(args[1]);
@@ -154,17 +143,17 @@ int main(void) {
 		}else if(!strcmp(args[0], "pwd")){
 			currentDir();
 			continue;
+
+		/*exit built in command*/
 		}else if(!strcmp(args[0], "exit")){
 			exit(0);
-		}else if(!strcmp(args[0], "jobs")){
-			getJobs(all_bprocesses);
-			continue;
 		}
 
 		pid_t process = fork();
 		if(process==0) {
 			//CHILD
 
+			/********P2********/
 			/*Print history from all commands list*/
 			if(!strcmp(args[0], "history")){
 				for(int i=t_count; i>t_count-10 && i>-1; i--){
@@ -180,6 +169,7 @@ int main(void) {
 				/*Check for redirect or pipes*/
 				for(int t=0; t<cnt; t++){
 
+					/*********Part4********/
 					/*REDIRECT*/
 					if(!strcmp(args[t], ">")){
 						cnt = t;
@@ -187,6 +177,7 @@ int main(void) {
 						output_file = open(args[t+1], O_WRONLY);
 						args[cnt] = NULL;
 
+					/*********Part5********/
 					/*PIPE*/
 					}else if(!strcmp(args[t], "|")){
 						int mid = t;
@@ -216,7 +207,7 @@ int main(void) {
 							dup(in_out[0]);
 							char *right[cnt-t];
 
-							/*Right hand side args from t+1 to cnt will be replaced from 0 to cnt*/
+							/*Right hand side args from t+1 to cnt placed in char *right[]*/
 							for(int c=t+1; c<cnt; c++){
 								right[c-t-1] = args[c];
 							}
@@ -238,17 +229,6 @@ int main(void) {
 			if(!bg){
 				int status;
 				waitpid(process, &status, 0);
-			}else{
-				// /*New background process to be added to bprocess_list*/
-				all_bprocesses[bprocess_count-1].uid = bprocess_count;
-				all_bprocesses[bprocess_count-1].pid = process;
-				all_bprocesses[bprocess_count-1].length = cnt;
-				for(int l=0; l<cnt; l++){
-					all_bprocesses[bprocess_count-1].args[l] = args[l];
-				}
-				all_bprocesses[bprocess_count-1].args[cnt] = NULL;
-				// printf("%d\n", all_bprocesses[bprocess_count-1].pid);
-				bprocess_count++;
 			}
 		}
 	}
